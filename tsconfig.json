@@ -2,9 +2,9 @@
   "compilerOptions": {
     "target": "es6",
     "lib": [
-      "es6",
-      "DOM"
+      "es6"
     ],
+    "noImplicitAny": false,
     "strict": true,
     "typeRoots": [
       "./node_modules/@types",

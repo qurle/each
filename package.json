@@ -1,13 +1,13 @@
 {
-  "name": "plugin-name",
+  "name": "each",
   "version": "1.0.0",
-  "description": "insert your description",
+  "description": "do something to each layer",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "npm run build -- --watch"
   },
-  "author": "your precious name",
+  "author": "Nick Qurle",
   "license": "",
   "devDependencies": {
     "@figma/plugin-typings": "^1.56.0"

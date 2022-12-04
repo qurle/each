@@ -1,56 +1,152 @@
 // Constants
-const confirmMsgs = ["Done!", "You got it!", "Aye!", "Is that all?", "My job here is done.", "Gotcha!", "It wasn't hard.", "Got it! What's next?"]
-const renameMsgs = ["Cleaned", "Affected", "Made it with", "Fixed"]
-const idleMsgs = ["All great, already", "Nothing to do, everything's good", "Any layers to affect? Can't see it", "Nothing to do, your layers are great"]
+const confirmMsgs = ['Done!', 'You got it!', 'Aye!', 'Is that all?', 'My job here is done.', 'Gotcha!', 'It wasn\'t hard.', 'Got it! What\'s next?']
+const renameMsgs = ['Cleaned', 'Affected', 'Made it with', 'Fixed']
+const idleMsgs = ['All great, already', 'Nothing to do, everything\'s good', 'Any layers to affect ? Can\'t see it', 'Nothing to do, your layers are great']
+const operations = ['Auto layout', 'Frame', 'Group', 'Rotate', 'Mirror']
+const axises = ['Horizontal', 'Vertical']
+const angles = ['30', '45', '60', '90', '180']
+const groupOps = ['autolayout', 'frame', 'group']
 
 // Variables
 let notification: NotificationHandler
 let selection: ReadonlyArray<SceneNode>
+let newSelection: Array<SceneNode> = []
 let working: boolean
 let count: number = 0
 
-figma.on("currentpagechange", cancel)
+figma.on('currentpagechange', cancel)
 
 // For networking purposes
 figma.showUI(__html__, { visible: false })
-const post = (k, v = 1, last = false) => figma.ui.postMessage({ k: k, v: v, last: last })
+const post = (event, plugin = 'each', value = 1) => figma.ui.postMessage({ plugin: plugin, event: event, value: value })
 figma.ui.onmessage = async (msg) => {
-  if (msg === "finished") // Real plugin finish (after server's last response)
+  if (msg === 'finished') // Real plugin finish (after server's last response)
     figma.closePlugin()
   else
     console.log(msg)
 }
 
 // Main + Elements Check
-post("started")
+post('started')
 working = true
 selection = figma.currentPage.selection
 
+// Suggestions
+figma.parameters.on(
+  'input',
+  ({ key, query, result }: ParameterInputEvent) => {
+    switch (key) {
+      case 'axis':
+        result.setSuggestions(axises.filter(s => s.includes(query)))
+        break
+      case 'angle':
+        if (!Number.isFinite(Number(query)))
+          result.setError('Type any number')
+        const suggestions = angles.indexOf(query) >= 0 ? [query, ...angles] : angles
+        result.setSuggestions(suggestions.filter(s => s.includes(query)))
+        break
+      default:
+        return
+    }
+  }
+)
+
 // Anything selected?
-if (selection.length)
-  for (const node of selection)
-    mainFunction(node)
-else
-  mainFunction(figma.currentPage)
-finish()
+figma.on('run', ({ command, parameters }: RunEvent) => {
+  if (selection.length)
+    for (const node of selection)
+      each(node, command, parameters)
+  figma.currentPage.selection = newSelection
+  finish()
+})
 
 // Action for selected nodes
-function mainFunction(node) {
+function each(node: SceneNode, command, parameters) {
+  switch (command) {
+    case 'autolayout':
+      const al: FrameNode = figma.createFrame()
+      al.x = node.x
+      al.y = node.y
+      al.layoutMode = 'HORIZONTAL'
+      al.appendChild(node)
+      al.primaryAxisSizingMode = 'AUTO'
+      al.counterAxisSizingMode = 'AUTO'
+      newSelection.push(al)
+      break
+
+    case 'frame':
+      const frame: FrameNode = figma.createFrame()
+      frame.x = node.x
+      frame.y = node.y
+      frame.appendChild(node)
+      frame.resize(node.width, node.height)
+      node.x = node.y = 0
+      newSelection.push(frame)
+      break
+
+    case 'group':
+      const group = figma.group([node], node.parent ? node.parent : figma.currentPage)
+      newSelection.push(group)
+      break
+
+    case 'component':
+      const component: ComponentNode = figma.createComponent()
+      component.x = node.x
+      component.y = node.y
+      component.appendChild(node)
+      component.resize(node.width, node.height)
+      node.x = node.y = 0
+      newSelection.push(component)
+      break
+
+    case 'flatten':
+      recursiveDetach(node)
+      figma.flatten([node], node.parent ? node.parent : figma.currentPage)
+      break
+
+    case 'flip':
+      const horMatrix: Transform = [
+        [-1, 0, node.x + node.width],
+        [0, 1, node.y]]
+      const verMatrix: Transform = [
+        [1, 0, node.x],
+        [0, -1, node.y + node.height]]
+      node.relativeTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
+      break
+
+    case 'rotate':
+      const rad = Number(parameters.angle) * Math.PI / 180
+      node.relativeTransform =
+        [[Math.cos(rad), Math.sin(rad), 0],
+        [-Math.sin(rad), Math.cos(rad), 0]]
+      break
+
+    case 'request':
+      figma.ui.postMessage({ request: parameters.request })
+  }
   count++
+}
+
+function recursiveDetach(node: SceneNode) {
+  if (node.type === 'INSTANCE') node.detachInstance()
+  if ('children' in node) {
+    for (const child of node.children) {
+      recursiveDetach(child)
+    }
+  }
 }
 
 // Ending the work
 function finish() {
   working = false
-  figma.root.setRelaunchData({ relaunch: '' })
   if (count > 0) {
     notify(confirmMsgs[Math.floor(Math.random() * confirmMsgs.length)] +
-      " " + renameMsgs[Math.floor(Math.random() * renameMsgs.length)] +
-      " " + ((count === 1) ? "only one layer" : (count + " layers")))
+      ' ' + renameMsgs[Math.floor(Math.random() * renameMsgs.length)] +
+      ' ' + ((count === 1) ? 'only one layer' : (count + ' layers')))
 
   }
   else notify(idleMsgs[Math.floor(Math.random() * idleMsgs.length)])
-  setTimeout(() => { console.log("Timeouted"), figma.closePlugin() }, 3000)
+  setTimeout(() => figma.closePlugin(), 3000)
 }
 
 // Show new notification
@@ -65,6 +161,6 @@ function cancel() {
   if (notification != null)
     notification.cancel()
   if (working) {
-    notify("Plugin work have been interrupted")
+    notify('Plugin work have been interrupted')
   }
 }

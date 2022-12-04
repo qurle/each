@@ -1,16 +1,57 @@
 {
-  "name": "Plugin name",
+  "name": "Each",
   "id": "000000000000000000",
   "api": "1.0.0",
   "main": "code.js",
   "editorType": [
     "figma"
   ],
-  "relaunchButtons": [
+  "menu": [
     {
-      "command": "relaunch",
-      "name": "do the stuff again",
-      "multipleSelection": true
+      "name": "Autolayout",
+      "command": "autolayout"
+    },
+    {
+      "name": "Frame",
+      "command": "frame"
+    },
+    {
+      "name": "Group",
+      "command": "group"
+    },
+    {
+      "name": "Make component",
+      "command": "component"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Flatten",
+      "command": "flatten"
+    },
+    {
+      "name": "Flip",
+      "command": "flip",
+      "parameters": [
+        {
+          "name": "Axis",
+          "key": "axis"
+        }
+      ]
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Request feature",
+      "command": "request",
+      "parameters": [
+        {
+          "name": "What command you miss?",
+          "key": "feature"
+        }
+      ]
     }
   ],
   "ui": "ui.html"
