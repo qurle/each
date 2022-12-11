@@ -64,6 +64,8 @@ figma.on('run', ({ command, parameters }: RunEvent) => {
     case 'group': post('grouped', count)
     case 'component': post('made', count)
     case 'flatten': post('flattened', count)
+    case 'flip': post('flipped', count)
+    case 'request': post('asked for feature', count)
   }
   finish()
 })
@@ -112,6 +114,28 @@ function each(node: SceneNode, command, parameters) {
       figma.flatten([node], node.parent ? node.parent : figma.currentPage)
       newSelection.push(node)
       break
+
+    case 'flip':
+      const horMatrix: Transform = [
+        [-1, 0, node.x + node.width],
+        [0, 1, node.y]]
+      const verMatrix: Transform = [
+        [1, 0, node.x],
+        [0, -1, node.y + node.height]]
+      node.relativeTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
+      const newTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
+      node.relativeTransform = matrixMultiply(node.relativeTransform as Transform, newTransform as Transform)
+      break
+
+    case 'rotate':
+      const rad = Number(parameters.angle) * Math.PI / 180
+      node.relativeTransform =
+        [[Math.cos(rad), Math.sin(rad), 0],
+        [-Math.sin(rad), Math.cos(rad), 0]]
+      break
+
+    case 'request':
+      figma.ui.postMessage({ request: parameters.request })
   }
   count++
 }
