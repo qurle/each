@@ -18,7 +18,7 @@ figma.on('currentpagechange', cancel)
 
 // For networking purposes
 figma.showUI(__html__, { visible: false })
-const post = (event, plugin = 'each', value = 1) => figma.ui.postMessage({ plugin: plugin, event: event, value: value })
+const post = (k, v = 1, last = false, plugin = 'each') => figma.ui.postMessage({ k: k, v: v, last: last, plugin: plugin })
 figma.ui.onmessage = async (msg) => {
   if (msg === 'finished') // Real plugin finish (after server's last response)
     figma.closePlugin()
@@ -29,6 +29,7 @@ figma.ui.onmessage = async (msg) => {
 // Main + Elements Check
 post('started')
 working = true
+const start = Date.now()
 selection = figma.currentPage.selection
 
 // Suggestions
@@ -57,6 +58,13 @@ figma.on('run', ({ command, parameters }: RunEvent) => {
     for (const node of selection)
       each(node, command, parameters)
   figma.currentPage.selection = newSelection
+  switch (command) {
+    case 'autolayout': post('autolayouted', count)
+    case 'frame': post('framed', count)
+    case 'group': post('grouped', count)
+    case 'component': post('made', count)
+    case 'flatten': post('flattened', count)
+  }
   finish()
 })
 
@@ -102,28 +110,8 @@ function each(node: SceneNode, command, parameters) {
     case 'flatten':
       recursiveDetach(node)
       figma.flatten([node], node.parent ? node.parent : figma.currentPage)
+      newSelection.push(node)
       break
-
-    case 'flip':
-      const horMatrix: Transform = [
-        [-1, 0, node.x + node.width],
-        [0, 1, node.y]]
-      const verMatrix: Transform = [
-        [1, 0, node.x],
-        [0, -1, node.y + node.height]]
-      const newTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
-      node.relativeTransform = matrixMultiply(node.relativeTransform as Transform, newTransform as Transform)
-      break
-
-    case 'rotate':
-      const rad = Number(parameters.angle) * Math.PI / 180
-      node.relativeTransform =
-        [[Math.cos(rad), Math.sin(rad), 0],
-        [-Math.sin(rad), Math.cos(rad), 0]]
-      break
-
-    case 'request':
-      figma.ui.postMessage({ request: parameters.request })
   }
   count++
 }
@@ -171,7 +159,8 @@ function finish() {
     notify(confirmMsgs[Math.floor(Math.random() * confirmMsgs.length)] +
       ' ' + renameMsgs[Math.floor(Math.random() * renameMsgs.length)] +
       ' ' + ((count === 1) ? 'only one layer' : (count + ' layers')))
-
+    post('processed', count)
+    const time = (Date.now() - start) / 1000
   }
   else notify(idleMsgs[Math.floor(Math.random() * idleMsgs.length)])
   setTimeout(() => figma.closePlugin(), 3000)
