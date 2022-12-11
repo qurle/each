@@ -111,7 +111,8 @@ function each(node: SceneNode, command, parameters) {
       const verMatrix: Transform = [
         [1, 0, node.x],
         [0, -1, node.y + node.height]]
-      node.relativeTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
+      const newTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
+      node.relativeTransform = matrixMultiply(node.relativeTransform as Transform, newTransform as Transform)
       break
 
     case 'rotate':
@@ -126,6 +127,33 @@ function each(node: SceneNode, command, parameters) {
   }
   count++
 }
+
+
+function matrixMultiply(m1: Transform, m2: Transform) {
+  console.log(m1)
+  console.log(m2)
+  let res: any[] = []
+  for (let i = 0; i < m1.length; i++) {
+    res[i] = []
+    for (let j = 0; j < m2[0].length; j++) {
+      let sum = 0
+      for (let k = 0; k < m1[0].length; k++) {
+        sum += m1[i][k] * m2[k][j]
+      }
+      res[i][j] = sum
+    }
+  }
+  return res as Transform;
+}
+
+// function matrixMultiply(A, B) {
+//   let result = new Array(A.length).fill(0).map(row => new Array(B[0].length).fill(0))
+//   return result.map((row, i) => {
+//     return row.map((val, j) => {
+//       return A[i].reduce((sum, elm, k) => sum + (elm * B[k][j]), 0)
+//     })
+//   }) as Transform
+// }
 
 function recursiveDetach(node: SceneNode) {
   if (node.type === 'INSTANCE') node.detachInstance()
