@@ -19,7 +19,6 @@ figma.on('currentpagechange', cancel)
 
 // Main + Elements Check
 // post('started')
-console.log(`Started`)
 working = true
 selection = figma.currentPage.selection
 
@@ -61,9 +60,6 @@ figma.on('run', ({ command, parameters }: RunEvent) => {
 
 // Action for selected nodes
 function each(node: SceneNode, command, parameters) {
-  console.log(`Running each for ${node.name}`)
-  console.log(`Command ${command}`)
-  console.log(`Parameters ${JSON.stringify(parameters)}`)
   switch (command) {
     case 'autolayout':
       const al: FrameNode = figma.createFrame()
@@ -73,6 +69,7 @@ function each(node: SceneNode, command, parameters) {
       al.appendChild(node)
       al.primaryAxisSizingMode = 'AUTO'
       al.counterAxisSizingMode = 'AUTO'
+      count++
       newSelection.push(al)
       break
 
@@ -84,10 +81,13 @@ function each(node: SceneNode, command, parameters) {
       frame.resize(node.width, node.height)
       node.x = node.y = 0
       newSelection.push(frame)
+      count++
       break
 
     case 'group':
       const group = figma.group([node], node.parent ? node.parent : figma.currentPage)
+      count++
+
       newSelection.push(group)
       break
 
@@ -99,11 +99,16 @@ function each(node: SceneNode, command, parameters) {
       component.resize(node.width, node.height)
       node.x = node.y = 0
       newSelection.push(component)
+      count++
       break
 
     case 'flatten':
       recursiveDetach(node)
-      figma.flatten([node], node.parent ? node.parent : figma.currentPage)
+      try {
+        figma.flatten([node], node.parent ? node.parent : figma.currentPage)
+        newSelection.push(node)
+        count++
+      } catch { }
       break
 
     case 'flip':
@@ -115,6 +120,7 @@ function each(node: SceneNode, command, parameters) {
         [0, -1, node.y + node.height]]
       const newTransform = parameters.axis === 'Horizontal' ? horMatrix : verMatrix
       node.relativeTransform = matrixMultiply(node.relativeTransform as Transform, newTransform as Transform)
+      count++
       break
 
     case 'rotate':
@@ -122,26 +128,20 @@ function each(node: SceneNode, command, parameters) {
       node.relativeTransform =
         [[Math.cos(rad), Math.sin(rad), 0],
         [-Math.sin(rad), Math.cos(rad), 0]]
+      count++
       break
 
     case 'align':
-      console.log(`Called "align"`)
-      console.log(`Parent has type: ${node.parent?.type || ''}`)
-
       if (!['FRAME', 'COMPONENT', 'SECTION'].includes(node.parent?.type || '')) {
         notify(`Node can't be aligned to this parent`)
         break
       }
 
       const hasContstraints = (node.parent && node.parent.type === 'FRAME' && 'constraints' in node)
-      console.log(`Has contstraints: ${hasContstraints}`)
       const parent = node.parent as FrameNode | ComponentNode | SectionNode
-      console.log(`Parent: ${parent}`)
 
-      console.log(`Side: ${parameters.side}`)
       switch (parameters.side) {
         case alignSides.left:
-          console.log('Aligning left')
           node.x = 0
           if (hasContstraints)
             node.constraints = { horizontal: 'MIN', vertical: node.constraints.vertical }
@@ -176,12 +176,12 @@ function each(node: SceneNode, command, parameters) {
           node.y = Math.random() * (parent.height - node.height)
           break
       }
+      count++
       break
 
     case 'request':
       figma.ui.postMessage({ request: parameters.request })
   }
-  count++
 }
 
 
