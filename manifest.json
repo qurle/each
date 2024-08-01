@@ -41,6 +41,16 @@
       ]
     },
     {
+      "name": "Align",
+      "command": "align",
+      "parameters": [
+        {
+          "name": "Side",
+          "key": "side"
+        }
+      ]
+    },
+    {
       "separator": true
     },
     {
@@ -53,6 +63,5 @@
         }
       ]
     }
-  ],
-  "ui": "ui.html"
+  ]
 }

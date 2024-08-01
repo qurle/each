@@ -6,6 +6,7 @@ const operations = ['Auto layout', 'Frame', 'Group', 'Rotate', 'Mirror']
 const axises = ['Horizontal', 'Vertical']
 const angles = ['30', '45', '60', '90', '180']
 const groupOps = ['autolayout', 'frame', 'group']
+const alignSides = { left: '←  Left', hcenter: '↔ Horizontal Center', right: '→  Right', top: '↑  Top', vcenter: '↕  Vertical Center', bottom: '↓  Bottom', random: '🔀  Random' }
 
 // Variables
 let notification: NotificationHandler
@@ -16,18 +17,9 @@ let count: number = 0
 
 figma.on('currentpagechange', cancel)
 
-// For networking purposes
-figma.showUI(__html__, { visible: false })
-const post = (event, plugin = 'each', value = 1) => figma.ui.postMessage({ plugin: plugin, event: event, value: value })
-figma.ui.onmessage = async (msg) => {
-  if (msg === 'finished') // Real plugin finish (after server's last response)
-    figma.closePlugin()
-  else
-    console.log(msg)
-}
-
 // Main + Elements Check
-post('started')
+// post('started')
+console.log(`Started`)
 working = true
 selection = figma.currentPage.selection
 
@@ -37,7 +29,10 @@ figma.parameters.on(
   ({ key, query, result }: ParameterInputEvent) => {
     switch (key) {
       case 'axis':
-        result.setSuggestions(axises.filter(s => s.includes(query)))
+        result.setSuggestions(includes(axises, query))
+        break
+      case 'side':
+        result.setSuggestions(includes(Object.values(alignSides), query))
         break
       case 'angle':
         if (!Number.isFinite(Number(query)))
@@ -51,17 +46,24 @@ figma.parameters.on(
   }
 )
 
+function includes(array: string[], value: string) {
+  return array.map(el => el).filter(el => el.toLowerCase().includes(value.toLowerCase()))
+}
+
 // Anything selected?
 figma.on('run', ({ command, parameters }: RunEvent) => {
   if (selection.length)
     for (const node of selection)
       each(node, command, parameters)
-  figma.currentPage.selection = newSelection
+  figma.currentPage.selection = newSelection.length > 0 ? newSelection : selection
   finish()
 })
 
 // Action for selected nodes
 function each(node: SceneNode, command, parameters) {
+  console.log(`Running each for ${node.name}`)
+  console.log(`Command ${command}`)
+  console.log(`Parameters ${JSON.stringify(parameters)}`)
   switch (command) {
     case 'autolayout':
       const al: FrameNode = figma.createFrame()
@@ -120,6 +122,60 @@ function each(node: SceneNode, command, parameters) {
       node.relativeTransform =
         [[Math.cos(rad), Math.sin(rad), 0],
         [-Math.sin(rad), Math.cos(rad), 0]]
+      break
+
+    case 'align':
+      console.log(`Called "align"`)
+      console.log(`Parent has type: ${node.parent?.type || ''}`)
+
+      if (!['FRAME', 'COMPONENT', 'SECTION'].includes(node.parent?.type || '')) {
+        notify(`Node can't be aligned to this parent`)
+        break
+      }
+
+      const hasContstraints = (node.parent && node.parent.type === 'FRAME' && 'constraints' in node)
+      console.log(`Has contstraints: ${hasContstraints}`)
+      const parent = node.parent as FrameNode | ComponentNode | SectionNode
+      console.log(`Parent: ${parent}`)
+
+      console.log(`Side: ${parameters.side}`)
+      switch (parameters.side) {
+        case alignSides.left:
+          console.log('Aligning left')
+          node.x = 0
+          if (hasContstraints)
+            node.constraints = { horizontal: 'MIN', vertical: node.constraints.vertical }
+          break
+        case alignSides.hcenter:
+          node.x = Math.round(parent.width / 2 - node.width / 2)
+          if (hasContstraints)
+            node.constraints = { horizontal: 'CENTER', vertical: node.constraints.vertical }
+          break
+        case alignSides.right:
+          node.x = Math.round(parent.width - node.width)
+          if (hasContstraints)
+            node.constraints = { horizontal: 'MAX', vertical: node.constraints.vertical }
+          break
+        case alignSides.top:
+          node.y = 0
+          if (hasContstraints)
+            node.constraints = { horizontal: node.constraints.horizontal, vertical: 'MIN' }
+          break
+        case alignSides.vcenter:
+          node.y = Math.round(parent.height / 2 - node.height / 2)
+          if (hasContstraints)
+            node.constraints = { horizontal: node.constraints.horizontal, vertical: 'CENTER' }
+          break
+        case alignSides.bottom:
+          node.y = Math.round(parent.height - node.height)
+          if (hasContstraints)
+            node.constraints = { horizontal: node.constraints.horizontal, vertical: 'MAX' }
+          break
+        case alignSides.random:
+          node.x = Math.random() * (parent.width - node.width)
+          node.y = Math.random() * (parent.height - node.height)
+          break
+      }
       break
 
     case 'request':
